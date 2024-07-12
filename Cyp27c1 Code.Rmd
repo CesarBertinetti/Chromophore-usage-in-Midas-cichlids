@@ -1,0 +1,152 @@
+---
+title: "Code from: Visual pigment chromophore usage in Nicaraguan Midas cichlids: Phenotypic plasticity and genetic assimilation of *cyp27c1* expression"
+author: "César Bertinetti"
+date: "November 13 2023"
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: xelatex
+---
+
+<style type="text/css">
+
+h1.title {
+  font-size: 28px;
+  color: Black;
+  text-align: justify;
+}
+h4.author { /* Header 4 - and the author and data headers use this too  */
+    font-size: 18px;
+  font-family: "Helvetica", Times, serif;
+  color: Black;
+  text-align: justify;
+}
+h4.date { /* Header 4 - and the author and data headers use this too  */
+  font-size: 18px;
+  font-family: "Helvetica", Times, serif;
+  color: Black;
+  text-align: justify;
+}
+</style>
+
+<style>
+pre {
+  font-size: 14px;
+}
+</style>
+
+<br/>
+
+The datasets needed to reproduce this analysis are deposited on Bertinetti et al. 2024. Data from: *Visual pigment chromophore usage in Nicaraguan Midas cichlids: Phenotypic plasticity and genetic assimilation of cyp27c1 expression* [Dataset] https://doi.org/10.5281/zenodo.10850332
+
+Following R version and packages were used to run this code:
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+pak <- c("readr", "stringr", "matrixStats","dplyr","tidyr","plotrix","RColorBrewer",
+         "MESS","zoo","car","Hmisc","corrplot","agricolae","nlme","ggplot2","gridExtra",
+         "stringr","tidyr", "pracma","visreg", "nlme", "sjstats", "performance", "lme4",
+         "rsq","partR2","grid","effectsize","devtools","pander",
+         "ggfortify", "vegan","ggpubr","ggdist", "colorspace","ragg","ggtext")
+lapply(pak, require, character.only = TRUE)
+``` 
+```{r, include=TRUE}
+
+R.version$platform
+R.version$version.string
+installed.packages()[names(sessionInfo()$otherPkgs), "Version"]
+
+## HERE USE setwd() to set your working directory where the data files will be located
+
+```
+
+### Cyp27c1 Gene Expression ###
+
+```{r}
+#### USEFUL FUNCTION
+momdis = function(x) {
+  c(m = mean(x), med = median(x), s = sd(x), iqr = IQR(x), n = length(x), se = std.error(x))
+}
+
+cyp27_adults <- read.table("Gene Expression - Wild and Lab Individuals.csv", header=T, sep =",", dec=".",stringsAsFactors = F) ### READ DATA FOR ADULTS
+ 
+cyp27_adults$Location <- factor(cyp27_adults$Location,levels=c("SanJuan","Isletas","Apoyo", "LkManagua","Tiscapa","Masaya","AsLeon","Apoyeque", "Xiloa", "AsManagua")) # ALTERNATIVE PLOT ORDER FOR OPSIN EXPRESSION
+
+```
+
+
+## Irradiance raw measurements ##
+
+<br> Performing correlation-based Principals Component Analysis (PCA) to generate a composite axis that accounts for most of the variation among photic environments. The raw data is available at Bertinetti et al. 2023. *Data from: Repeated Divergence in Opsin Gene Expression Mirrors Photic Habitat Changes in Rapidly Evolving Crater Lake Cichlid Fishes* [Dataset]. Dryad. https://doi.org/10.5061/dryad.j3tx95xgk
+
+```{r}
+to50 <- read.table("Photic Parameters.csv", stringsAsFactors=F, header = T, sep=",", dec = ".") [-1]
+d1 <- subset(to50, d == 'd_1') # Extracts photic parameters calculated using downwelling irradiance at one meter depth
+s1 <- subset(to50, d == 's_1')# Extracts photic parameters calculated using sidewelling irradiance at one meter depth
+to50 <-cbind(d1,s1)
+rownames(to50) <- to50$loc  # Add lakes names as rownames for matrix later one
+to50 <- to50[,-c(4:5,7:8,12:16)]
+# USING P25 and P75 instead of Interval "Width" makes more sense and gives better results!
+colnames(to50) <-c("P50_d","P25_d","P75_d","lux_1","P50_s","P25_s","P75_s") #[,-c(6:11)] 
+
+
+pca1 <- prcomp(to50, scale. = T,center=T) ## doing PCA
+summary(pca1) # 0.935% variation PC1
+pca1$rotation ## check values
+pca1$x[,1] # points of samples on x-coordinate (Dim 1) to use for linear model
+
+cyp_adults <-merge(as.data.frame(pca1$x[,1]),cyp27_adults, by.x="row.names",by.y="Location") ## merge to gene expression dataframe
+colnames(cyp_adults)[1:2] <-c("Location","Photic")
+```
+
+```{r}
+cyp_adults$logR_cyp27c <- log2(cyp_adults$R_cyp27c) # improve distribution logarithmic scale
+a <- cyp_adults[complete.cases(cyp_adults), ] # partialR2 does not like NA's
+
+w <- subset(a, rearing == "wild")
+
+m1.lmer <- lmer(logR_cyp27c ~ Photic + (1|Location), data=w) ## mixed-effect model with random intercept
+pander(Anova(m1.lmer, type = 2,test.statistic = "F"))
+capture.output(Anova(m1.lmer, type=3,test.statistic = "F"), file="log27~P50-random,~1|Location-ONLYWILD.txt")
+summary(m1.lmer)
+rsq(m1.lmer,adj=T,type=c('v')) #model 0.51 , fixed 0.32 (marginal)
+
+```
+
+```{r}
+l <- subset(a, rearing == "lab")
+### POPULATION DIFF FOR LAB (ANOVA WITH POSTHOCS)
+lcyp27<- lm(logR_cyp27c ~ Location, data = l)
+Anova(lcyp27, type='2')                                 #<0.001***
+(m2 <- HSD.test(lcyp27, trt = c('Location'), unbalanced=T))
+```
+
+```{r}
+plot(m1.lmer)
+```
+
+```{r}
+cyp27_juve <- read.table("Gene Expression - Light Experiments.csv", header=T, sep =",", dec=".",stringsAsFactors = T)
+cyp27_juve$logRcyp27 <- log2(cyp27_juve$R_cyp27c1) ### NON LOG SCALE IS HIHGLY SKEWED
+treat_col <- c("#3288BD","#9E0142")
+
+## ARRANGE DATA
+cyp27_juve<- cyp27_juve %>%
+  unite("combi", Spec, Treat, sep="", remove=F)
+cyp27_juve$combi <- as.factor(cyp27_juve$combi)
+cyp27_juve$combi<- factor(cyp27_juve$combi,levels=c("ASTRL","ASTWL","SAGRL","SAGWL","CITRL", "CITWL")) 
+
+## ANOVA
+acyp<- aov(logRcyp27 ~ Spec * Treat, data = cyp27_juve)
+pander(Anova(acyp, type='3'))                             
+
+### Tukey HSD post hoc
+acyp27 <- aov(logRcyp27 ~ combi, data = cyp27_juve)
+(m4 <- HSD.test(acyp27, trt = c('combi'), unbalanced=T))   
+```
+
+
+
+
+
