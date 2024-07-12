@@ -1,8 +1,8 @@
 # Chromophore-usage-in-Midas-cichlids
 
-The datasets associated with this code can be found in doi.org/10.5061/dryad.j3tx95xgk.
+The datasets associated with this code can be found in https://doi.org/10.5281/zenodo.10850332
 
-The code provided here is required to perform the analysis associated with 
+The code provided here is required to perform the analysis associated with "Visual pigment chromophore usage in Nicaraguan Midas cichlids: Phenotypic plasticity and genetic assimilation of cyp27c1 expression", Hydrobiologia (In press)
 
 The R Markdown includes a step-by-step description of the different analyses.
 
@@ -11,7 +11,7 @@ This README.md file was created by César Bertinetti on 2024-March-15
 
 GENERAL INFORMATION
 
-1. Title of Dataset: Cyp27c1 variation in Nicaraguan Midas cichlids (Amphilophus cf. citrinellus): Plasticity and genetic influences on visual pigment chromophore usage
+1. Title of Dataset:Visual pigment chromophore usage in Nicaraguan Midas cichlids: Phenotypic plasticity and genetic assimilation of cyp27c1 expression
 
 
 2. Author Information
